@@ -43,88 +43,54 @@
         #fileList {
             margin-top: 20px;
         }
-        .status-pending { color: #f57c00; }
-        .status-success { color: #4caf50; }
-        .status-error { color: #f44336; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="upload-box">
             <h2>馬拉松照片上傳</h2>
-            <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
-            <button class="btn-upload" onclick="document.getElementById('fileInput').click()">
-                選擇照片
-            </button>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+                <button type="button" class="btn-upload" onclick="document.getElementById('fileInput').click()">
+                    選擇照片
+                </button>
+            </form>
         </div>
         <div id="fileList"></div>
     </div>
 
     <script>
-        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
-
-        function handleFileSelect(event) {
-            const files = event.target.files;
-            const fileList = document.getElementById('fileList');
-            fileList.innerHTML = ''; // 清空之前的列表
-
-            Array.from(files).forEach((file, index) => {
-                uploadSingleFile(file, index);
-            });
-        }
-
-        function createFormData(file) {
-            const formData = new FormData();
-            formData.append('file', file);
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (!files.length) return;
             
-            const params = {
-                'para1': 'NDQwMzI3MTQ=',
-                'para2': 'YWU4ZGUxYjA3MmY5NTBmZA==',
-                'para3': 'MTUwNjk=',
-                'para4': 'MjU2NTQ1',
-                'para5': 'MDg=',
-                'p6': '2024台灣米倉田中馬拉松',
-                'p7': '2024-11-10',
-                'p8': '蘇兄 拍攝',
-                'p9': '1731421179047'
-            };
-
-            Object.entries(params).forEach(([key, value]) => {
-                formData.append(key, value);
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = ''; // 清空先前的列表
+            
+            Array.from(files).forEach(file => {
+                // 為每個檔案創建一個表單並立即上傳
+                uploadFile(file);
             });
+        });
 
-            return formData;
-        }
-
-        function uploadSingleFile(file, index) {
-            // 創建檔案項目
+        function uploadFile(file) {
+            // 創建檔案顯示項目
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
-            fileItem.innerHTML = `
-                <div>${file.name}</div>
-                <div class="status-pending">準備上傳...</div>
-            `;
-            document.getElementById('fileList').appendChild(fileItem);
+            fileItem.innerHTML = `${file.name} - 準備上傳`;
+            document.getElementById('fileList').insertBefore(fileItem, null);
 
             // 創建表單
             const form = document.createElement('form');
             form.method = 'POST';
             form.enctype = 'multipart/form-data';
             form.action = 'http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php';
-            form.target = `uploadFrame_${index}`;
 
-            // 創建檔案輸入
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.name = 'file';
-            fileInput.style.display = 'none';
+            // 創建一個新的 FormData
+            const formData = new FormData();
+            formData.append('file', file);
 
-            // 創建一個新的 FileList
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            fileInput.files = dataTransfer.files;
-
-            // 添加隱藏欄位
+            // 添加其他必要參數
             const params = {
                 'para1': 'NDQwMzI3MTQ=',
                 'para2': 'YWU4ZGUxYjA3MmY5NTBmZA==',
@@ -137,45 +103,32 @@
                 'p9': '1731421179047'
             };
 
+            // 添加所有參數到表單
             Object.entries(params).forEach(([key, value]) => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = value;
-                form.appendChild(input);
+                formData.append(key, value);
             });
 
-            // 創建 iframe
-            const iframe = document.createElement('iframe');
-            iframe.name = `uploadFrame_${index}`;
-            iframe.style.display = 'none';
-            
-            // 監聽 iframe 載入事件
-            iframe.onload = function() {
-                try {
-                    fileItem.querySelector('div:last-child').className = 'status-success';
-                    fileItem.querySelector('div:last-child').textContent = '上傳成功';
-                } catch (error) {
-                    fileItem.querySelector('div:last-child').className = 'status-success';
-                    fileItem.querySelector('div:last-child').textContent = '已送出';
+            // 更新狀態
+            fileItem.innerHTML = `${file.name} - 上傳中...`;
+
+            // 使用 XHR 上傳
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php', true);
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    fileItem.innerHTML = `${file.name} - 上傳成功`;
+                } else {
+                    fileItem.innerHTML = `${file.name} - 已送出 (${xhr.status})`;
                 }
             };
 
-            // 添加元素到文件
-            form.appendChild(fileInput);
-            document.body.appendChild(form);
-            document.body.appendChild(iframe);
+            xhr.onerror = function() {
+                fileItem.innerHTML = `${file.name} - 已送出`;
+            };
 
-            // 更新狀態
-            fileItem.querySelector('div:last-child').textContent = '上傳中...';
-
-            // 提交表單
-            form.submit();
-
-            // 清理表單和iframe（延遲執行以確保上傳完成）
-            setTimeout(() => {
-                document.body.removeChild(form);
-            }, 100);
+            // 發送請求
+            xhr.send(formData);
         }
     </script>
 </body>
