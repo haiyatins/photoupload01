@@ -43,73 +43,139 @@
         #fileList {
             margin-top: 20px;
         }
+        .status-pending { color: #f57c00; }
+        .status-success { color: #4caf50; }
+        .status-error { color: #f44336; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="upload-box">
             <h2>馬拉松照片上傳</h2>
-            <form id="uploadForm" target="uploadTarget" method="post" enctype="multipart/form-data" 
-                  action="http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php">
-                <input type="file" name="file" id="fileInput" accept="image/*" multiple style="display:none"
-                       onchange="handleFiles(this.files)">
-                <button type="button" class="btn-upload" onclick="document.getElementById('fileInput').click()">
-                    選擇照片
-                </button>
-                <input type="hidden" name="para1" value="NDQwMzI3MTQ=">
-                <input type="hidden" name="para2" value="YWU4ZGUxYjA3MmY5NTBmZA==">
-                <input type="hidden" name="para3" value="MTUwNjk=">
-                <input type="hidden" name="para4" value="MjU2NTg5">
-                <input type="hidden" name="para5" value="MDg=">
-                <input type="hidden" name="p6" value="2024台灣米倉田中馬拉松">
-                <input type="hidden" name="p7" value="2024-11-10">
-                <input type="hidden" name="p8" value="蘇兄 拍攝">
-                <input type="hidden" name="p9" value="1731488546596">
-            </form>
+            <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+            <button class="btn-upload" onclick="document.getElementById('fileInput').click()">
+                選擇照片
+            </button>
         </div>
         <div id="fileList"></div>
     </div>
-    <iframe name="uploadTarget" style="display:none;"></iframe>
 
     <script>
-        function handleFiles(files) {
+        document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
             const fileList = document.getElementById('fileList');
             fileList.innerHTML = ''; // 清空之前的列表
-            
+
             Array.from(files).forEach((file, index) => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
-                fileItem.innerHTML = `${file.name} - 準備上傳`;
-                fileList.appendChild(fileItem);
-                
-                // 為每個檔案創建一個表單並提交
-                const form = document.getElementById('uploadForm').cloneNode(true);
-                form.target = `uploadFrame_${index}`;
-                
-                // 創建對應的 iframe
-                const iframe = document.createElement('iframe');
-                iframe.name = `uploadFrame_${index}`;
-                iframe.style.display = 'none';
-                document.body.appendChild(iframe);
-                
-                // 設置新的 FileList
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(file);
-                form.querySelector('input[type="file"]').files = dataTransfer.files;
-                
-                // 監聽上傳完成
-                iframe.onload = function() {
-                    fileItem.innerHTML = `${file.name} - 已送出`;
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                    }, 1000);
-                };
-                
-                // 添加表單並提交
-                document.body.appendChild(form);
-                form.submit();
-                document.body.removeChild(form);
+                uploadSingleFile(file, index);
             });
+        }
+
+        function createFormData(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const params = {
+                'para1': 'NDQwMzI3MTQ=',
+                'para2': 'YWU4ZGUxYjA3MmY5NTBmZA==',
+                'para3': 'MTUwNjk=',
+                'para4': 'MjU2NTQ1',
+                'para5': 'MDg=',
+                'p6': '2024台灣米倉田中馬拉松',
+                'p7': '2024-11-10',
+                'p8': '蘇兄 拍攝',
+                'p9': '1731421179047'
+            };
+
+            Object.entries(params).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+
+            return formData;
+        }
+
+        function uploadSingleFile(file, index) {
+            // 創建檔案項目
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div>${file.name}</div>
+                <div class="status-pending">準備上傳...</div>
+            `;
+            document.getElementById('fileList').appendChild(fileItem);
+
+            // 創建表單
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.enctype = 'multipart/form-data';
+            form.action = 'http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php';
+            form.target = `uploadFrame_${index}`;
+
+            // 創建檔案輸入
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.name = 'file';
+            fileInput.style.display = 'none';
+
+            // 創建一個新的 FileList
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+
+            // 添加隱藏欄位
+            const params = {
+                'para1': 'NDQwMzI3MTQ=',
+                'para2': 'YWU4ZGUxYjA3MmY5NTBmZA==',
+                'para3': 'MTUwNjk=',
+                'para4': 'MjU2NTQ1',
+                'para5': 'MDg=',
+                'p6': '2024台灣米倉田中馬拉松',
+                'p7': '2024-11-10',
+                'p8': '蘇兄 拍攝',
+                'p9': '1731421179047'
+            };
+
+            Object.entries(params).forEach(([key, value]) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = value;
+                form.appendChild(input);
+            });
+
+            // 創建 iframe
+            const iframe = document.createElement('iframe');
+            iframe.name = `uploadFrame_${index}`;
+            iframe.style.display = 'none';
+            
+            // 監聽 iframe 載入事件
+            iframe.onload = function() {
+                try {
+                    fileItem.querySelector('div:last-child').className = 'status-success';
+                    fileItem.querySelector('div:last-child').textContent = '上傳成功';
+                } catch (error) {
+                    fileItem.querySelector('div:last-child').className = 'status-success';
+                    fileItem.querySelector('div:last-child').textContent = '已送出';
+                }
+            };
+
+            // 添加元素到文件
+            form.appendChild(fileInput);
+            document.body.appendChild(form);
+            document.body.appendChild(iframe);
+
+            // 更新狀態
+            fileItem.querySelector('div:last-child').textContent = '上傳中...';
+
+            // 提交表單
+            form.submit();
+
+            // 清理表單和iframe（延遲執行以確保上傳完成）
+            setTimeout(() => {
+                document.body.removeChild(form);
+            }, 100);
         }
     </script>
 </body>
