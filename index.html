@@ -49,7 +49,7 @@
     <div class="container">
         <div class="upload-box">
             <h2>馬拉松照片上傳</h2>
-            <form id="uploadForm" enctype="multipart/form-data">
+            <form id="uploadForm" target="uploadTarget" method="post" enctype="multipart/form-data">
                 <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
                 <button type="button" class="btn-upload" onclick="document.getElementById('fileInput').click()">
                     選擇照片
@@ -60,6 +60,8 @@
     </div>
 
     <script>
+        const API_URL = 'https://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php';
+        
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const files = e.target.files;
             if (!files.length) return;
@@ -67,30 +69,36 @@
             const fileList = document.getElementById('fileList');
             fileList.innerHTML = ''; // 清空先前的列表
             
-            Array.from(files).forEach(file => {
-                // 為每個檔案創建一個表單並立即上傳
-                uploadFile(file);
+            Array.from(files).forEach((file, index) => {
+                uploadFile(file, index);
             });
         });
 
-        function uploadFile(file) {
+        function uploadFile(file, index) {
             // 創建檔案顯示項目
             const fileItem = document.createElement('div');
             fileItem.className = 'file-item';
-            fileItem.innerHTML = `${file.name} - 準備上傳`;
-            document.getElementById('fileList').insertBefore(fileItem, null);
+            fileItem.textContent = `${file.name} - 準備上傳`;
+            document.getElementById('fileList').appendChild(fileItem);
 
             // 創建表單
             const form = document.createElement('form');
             form.method = 'POST';
             form.enctype = 'multipart/form-data';
-            form.action = 'http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php';
+            form.action = API_URL;
+            form.target = `uploadFrame_${index}`;
 
-            // 創建一個新的 FormData
-            const formData = new FormData();
-            formData.append('file', file);
+            // 創建檔案輸入
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.name = 'file';
+            
+            // 創建一個新的 FileList
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
 
-            // 添加其他必要參數
+            // 添加參數
             const params = {
                 'para1': 'NDQwMzI3MTQ=',
                 'para2': 'YWU4ZGUxYjA3MmY5NTBmZA==',
@@ -103,32 +111,41 @@
                 'p9': '1731421179047'
             };
 
-            // 添加所有參數到表單
             Object.entries(params).forEach(([key, value]) => {
-                formData.append(key, value);
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = value;
+                form.appendChild(input);
             });
 
-            // 更新狀態
-            fileItem.innerHTML = `${file.name} - 上傳中...`;
-
-            // 使用 XHR 上傳
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', 'http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php', true);
-
-            xhr.onload = function() {
-                if (xhr.status === 200) {
-                    fileItem.innerHTML = `${file.name} - 上傳成功`;
-                } else {
-                    fileItem.innerHTML = `${file.name} - 已送出 (${xhr.status})`;
+            // 創建 iframe
+            const iframe = document.createElement('iframe');
+            iframe.name = `uploadFrame_${index}`;
+            iframe.style.display = 'none';
+            
+            // 設置 iframe 載入處理
+            iframe.onload = function() {
+                if (iframe.readyState === 'complete') {
+                    fileItem.textContent = `${file.name} - 已送出`;
                 }
             };
 
-            xhr.onerror = function() {
-                fileItem.innerHTML = `${file.name} - 已送出`;
-            };
+            // 添加元素到文檔
+            form.appendChild(fileInput);
+            document.body.appendChild(form);
+            document.body.appendChild(iframe);
 
-            // 發送請求
-            xhr.send(formData);
+            // 更新狀態
+            fileItem.textContent = `${file.name} - 上傳中...`;
+
+            // 提交表單
+            form.submit();
+
+            // 清理表單（延遲執行以確保上傳開始）
+            setTimeout(() => {
+                document.body.removeChild(form);
+            }, 1000);
         }
     </script>
 </body>
