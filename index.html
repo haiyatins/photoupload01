@@ -1,9 +1,9 @@
+這個版本在pc是可以的 但是只要轉到github 上就會失效 為什麼
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>馬拉松照片上傳</title>
     <style>
         body {
@@ -50,123 +50,66 @@
     <div class="container">
         <div class="upload-box">
             <h2>馬拉松照片上傳</h2>
-            <div class="upload-form">
-                <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+            <form id="uploadForm" target="uploadTarget" method="post" enctype="multipart/form-data" 
+                  action="http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php">
+                <input type="file" name="file" id="fileInput" accept="image/*" multiple style="display:none"
+                       onchange="handleFiles(this.files)">
                 <button type="button" class="btn-upload" onclick="document.getElementById('fileInput').click()">
                     選擇照片
                 </button>
-            </div>
+                <input type="hidden" name="para1" value="NDQwMzI3MTQ=">
+                <input type="hidden" name="para2" value="YWU4ZGUxYjA3MmY5NTBmZA==">
+                <input type="hidden" name="para3" value="MTUwNjk=">
+                <input type="hidden" name="para4" value="MjU2NTg5">
+                <input type="hidden" name="para5" value="MDg=">
+                <input type="hidden" name="p6" value="2024台灣米倉田中馬拉松">
+                <input type="hidden" name="p7" value="2024-11-10">
+                <input type="hidden" name="p8" value="蘇兄 拍攝">
+                <input type="hidden" name="p9" value="1731421179047">
+            </form>
         </div>
         <div id="fileList"></div>
     </div>
+    <iframe name="uploadTarget" style="display:none;"></iframe>
 
     <script>
-        const API_URL = window.location.protocol === 'https:' ? 
-            'http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php' : 
-            'http://ec2-52-68-196-64.ap-northeast-1.compute.amazonaws.com/upload.v21.php';
-
-        document.getElementById('fileInput').addEventListener('change', async function(e) {
-            const files = e.target.files;
-            if (!files.length) return;
-            
+        function handleFiles(files) {
             const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
+            fileList.innerHTML = ''; // 清空之前的列表
             
-            for (let file of files) {
+            Array.from(files).forEach((file, index) => {
                 const fileItem = document.createElement('div');
                 fileItem.className = 'file-item';
-                fileItem.textContent = `${file.name} - 準備上傳`;
+                fileItem.innerHTML = `${file.name} - 準備上傳`;
                 fileList.appendChild(fileItem);
-
-                try {
-                    await uploadFileWithForm(file, fileItem);
-                } catch (error) {
-                    console.error('Upload error:', error);
-                    fileItem.textContent = `${file.name} - 已送出`;
-                }
-            }
-        });
-
-        function uploadFileWithForm(file, fileItem) {
-            return new Promise((resolve, reject) => {
-                const uniqueId = Math.random().toString(36).substring(7);
-                const formId = `uploadForm_${uniqueId}`;
-                const iframeId = `uploadFrame_${uniqueId}`;
-
-                // 創建表單
-                const form = document.createElement('form');
-                form.id = formId;
-                form.method = 'POST';
-                form.enctype = 'multipart/form-data';
-                form.action = API_URL;
-                form.target = iframeId;
-                form.style.display = 'none';
-
-                // 創建 iframe
-                const iframe = document.createElement('iframe');
-                iframe.name = iframeId;
-                iframe.id = iframeId;
-                iframe.style.display = 'none';
-
-                // 創建檔案輸入
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.name = 'file';
                 
-                // 設置檔案
+                // 為每個檔案創建一個表單並提交
+                const form = document.getElementById('uploadForm').cloneNode(true);
+                form.target = `uploadFrame_${index}`;
+                
+                // 創建對應的 iframe
+                const iframe = document.createElement('iframe');
+                iframe.name = `uploadFrame_${index}`;
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+                
+                // 設置新的 FileList
                 const dataTransfer = new DataTransfer();
                 dataTransfer.items.add(file);
-                fileInput.files = dataTransfer.files;
-
-                // 添加參數
-                const params = {
-                    'para1': 'NDQwMzI3MTQ=',
-                    'para2': 'YWU4ZGUxYjA3MmY5NTBmZA==',
-                    'para3': 'MTUwNjk=',
-                    'para4': 'MjU2NTQ1',
-                    'para5': 'MDg=',
-                    'p6': '2024台灣米倉田中馬拉松',
-                    'p7': '2024-11-10',
-                    'p8': '蘇兄 拍攝',
-                    'p9': '1731421179047'
-                };
-
-                Object.entries(params).forEach(([key, value]) => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = value;
-                    form.appendChild(input);
-                });
-
-                // 添加檔案輸入
-                form.appendChild(fileInput);
-
-                // 處理上傳完成
+                form.querySelector('input[type="file"]').files = dataTransfer.files;
+                
+                // 監聽上傳完成
                 iframe.onload = function() {
-                    try {
-                        fileItem.textContent = `${file.name} - 已送出`;
-                        resolve();
-                    } catch (error) {
-                        reject(error);
-                    } finally {
-                        // 清理 DOM
-                        setTimeout(() => {
-                            document.body.removeChild(form);
-                            document.body.removeChild(iframe);
-                        }, 1000);
-                    }
+                    fileItem.innerHTML = `${file.name} - 已送出`;
+                    setTimeout(() => {
+                        document.body.removeChild(iframe);
+                    }, 1000);
                 };
-
-                // 添加到文檔
+                
+                // 添加表單並提交
                 document.body.appendChild(form);
-                document.body.appendChild(iframe);
-
-                // 更新狀態
-                fileItem.textContent = `${file.name} - 上傳中...`;
-
-                // 提交表單
                 form.submit();
+                document.body.removeChild(form);
             });
         }
     </script>
